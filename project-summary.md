@@ -1,28 +1,26 @@
-#Title: Differences in gene expressions between fetus and adults brains
+#Title: RNA-seq re-analysis to demonstrate students the RNA-seq data analysis workflow
 
 ## Summary
-In this genomic data science project, we are evaluating differences in gene expression between fetal and adult brains. Transcriptome sequencing data (known as RNA-seq) for this genomic data science project was sequenced on an Illumina platform from human post-mortem brains. The raw sequencing data and meta-data related to each brain sample has been downloaded from a public database. The data will be aligned, quality control performed on the alignments, and gene count levels of expression will be determined. With the aid of exploratory and fitting statistical models,  patterns of gene expression will be identified between fetus and adult brains. Findings from this genomic data science project will provide insights in to genes differentially expressed between fetus and adult brains, and will be an example of reproducible research in genomic sciences.
+In this genomic data science project, which served as a demonstration for students in an upper division microbiology course (MCB3023 at Miami Dade College), the differential gene expression between fetal and adult brains was evaluated. Transcriptome sequencing data (known as RNA-seq) for this genomic data science project, which has been previously analyzed and published [here](http://www.ncbi.nlm.nih.gov/pmc/articles/PMC4281298/), was sequenced on an Illumina platform from human post-mortem brains. The raw sequencing data related to each brain were uploaded from a **[public database](http://www.ebi.ac.uk/ena/data/view/PRJNA245228)** into the **Galaxy Project server** (https://usegalaxy.org), while the meta-data from each sample was obtained manually from the 3rd link listed below. The data was aligned, quality controls performed for each alignment, and gene count levels of expression determined. Furthermore, exploratory analysis and fitting statistical models were elaborated to identify patterns of gene expression based on phenotypic variables of the RNA-seq samples. From the statistical model, 18 up-regulated and 18 down-regulated genes were subsetted and assigned to students for them to search the function of these genes. In-class discussions were carried out to elaborate the significance of the genes functions and the importance of up or down-regulating the respective genes. 
 
 ### Sites to access the 1) original article, 2)  RNA-seq data, 3) phenotype meta-data, and 4) how to get the data 4
 
 1. Find in this link the related publication: http://www.ncbi.nlm.nih.gov/pmc/articles/PMC4281298/
 
-2. Find in this link the RNA-seq data: https://www.dropbox.com/s/m0qgo3mo1jiiyyp/list-of-possible-samples-to-use.pdf?dl=0
+2. Find in this link the RNA-seq data: http://www.ebi.ac.uk/ena/data/view/PRJNA245228
 
 3. Find in this link the phenotype meta-data for the samples: http://www.ncbi.nlm.nih.gov/bioproject/?term=PRJNA245228
 
-4. Find in this link instructions on how to get the data: https://www.dropbox.com/s/0fnu9a0pguzjqrr/how-to-get-the-data-from-SRA__by-Coursera.pdf?dl=0
-
-### Steps to be performed
-
+### Steps performed
 1. Download the RNA-seq data and phenotype meta-data
-2. RNA-seq sequences alignment (through **The Galaxy Project, https://usegalaxy.org**)
+2. RNA-seq sequences algined through **The Galaxy Project, https://usegalaxy.org**)
 3. QC of alignments
 4. Calculate gene expressions based on gene count levels
 5. Perform exploratory analysis to refine model to be built
 6. Built model to ID genes differentially expressed between fetal and adult brains
 7. Identify possible biological patterns
-8. Document the whole process through a brief report
+8. Assignment genes to students
+9. Document the whole process through a brief report
 
 
 
