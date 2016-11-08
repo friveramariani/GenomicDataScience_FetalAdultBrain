@@ -19,7 +19,7 @@ In this genomic data science project, which served as a demonstration for studen
 5. Perform exploratory analysis to refine model to be built
 6. Built model to ID genes differentially expressed between fetal and adult brains
 7. Identify possible biological patterns
-8. Assignment genes to students
+8. Assign genes to students
 9. Document the whole process through a brief report
 
 
