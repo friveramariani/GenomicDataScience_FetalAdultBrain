@@ -1,0 +1,312 @@
+---
+title: 'Report: RNA-Seq Data Analysis Worflow to Evaluate Differential Gene Expression
+  as a Genomic Data Science Demonstration in a Upper division Microbiology Course""
+  between Fetus and Adult Brains'
+author: "Felix E. Rivera-Mariani, PhD"
+date: "August 23, 2016"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# Summary
+This report describes the RNA-seq data re-analysis workflow to evaluate differential gene expression between fetus and adult brains. The RNA-seq FastQ files have been previously analyzed and the results published in the *Nature Neuroscience (2015, vol 18(1), pages 154-161)*, and the published article can be found  [**article**](http://www.ncbi.nlm.nih.gov/pmc/articles/PMC4281298/). The softwares, parameters, packages, and commands used in each step are described. Brienfly, phenotypic metadata and FastQ files from four fetal and four adult brains RNAsamples were selected, and their corresponding FastQ files uploaded into the [**Galaxy server**](https://usegalaxy.org/). Each FastQ file was aligned against a human reference genome (**hg19**), and quality scores of the reads evaluated. Abundance of gene-level features was then determined for each sample, and log-transformmed distances between the samples compared, as well as sample-clustering between the samples based on age group (fetus vs adult). Differential gene expressions was determined and compared between fetal and adult samples, and corresponding p-value adjustments implemented. Lastly, each student in the class was assigned a up-regulated or down-regulated gene. Each student was responsible to search information about the full name of the gene as well as its molecular function. The genomic data analysis workflow was performed through [**Galaxy**](https://usegalaxy.org/), [**R**](https://cran.r-project.org/), [**GalaxyConector**](https://github.com/scholtalbers/r-galaxy-connector) and [**Bioconductor**](https://www.bioconductor.org/).
+
+**Note:** This report was prepared using R Markdown (R version 3.3.1, https://cran.r-project.org/) and knitr (version 1.14, http://yihui.name/knitr/). The full R Mardown and all other files and codes associated with this genomic data science report can be found in this **[github repository]**(https://github.com/friveramariani/GenomicDataScience_FetalAdultBrain). The R package [**GalaxyConector**](https://github.com/scholtalbers/r-galaxy-connector) was used in this genomic data analysis workflow to download information of the uploaded FastQ files and output datasets from each sequencing job in the Galaxy instance of this genomic data analysis report. 
+
+![Summary of Genomic Data Analysis Workflow](C:/Users/Felix/Dropbox/DataScience/Projects/fetus_vs_adult_brains/RNA_seq_workflow.png)
+
+# Obtaining RNA-seq and Phenotypic Metadata from the Samples
+
+Files for all the samples analyzed in the article were published in *Nature Neuroscience*, including the phenotypic metadata for each sample, can be found [**here**](https://www.ncbi.nlm.nih.gov/Traces/study/?acc=SRP045638). Nevertheless, the following mirror website was used to upload files directly into Galaxy server: http://www.ebi.ac.uk/ena/data/view/PRJNA245228. This mirror websites provides **1)** links to download FastQ files into a local drive, **2)** FTP links for each FastQ file, and **3)** links to directly upload FastQ files into a Galaxy instance. The latter option was used in this genomic data analysis report. 
+Find below (**Table 1**) the metadata, for the samples selected. 
+
+###*Table 1: Phenotypic metadata for the fetal and adult brain samplesetadata*
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+sample_run_phenotypic <- read.delim("C:/Users/Felix/Dropbox/DataScience/Projects/fetus_vs_adult_brains/gdc-sample-phenotypic-summalign_samples_analyzed.txt")
+
+table1 <- sample_run_phenotypic[,c(1:11)] # subset columns for the variables in table 1
+library(pander) # load the pander packages
+pander(table1) # print table 1
+```
+
+Each metadata information in **table 1** is decoded below:
+
+1) **run**: RNA-seq run
+2) **sample**: sample ID
+3) **sra**: sequencing read archive ID
+4) **age**: age (in < 1, in months)
+5) **ageg**: age group (fetus or adult)
+6) **sex**: female or male
+7) **race**: ethniciy (AA, HISP)
+8) **rin**: RNA integrity number
+9) **fraction**: RNA extraction (total = all RNA in the cell)
+10) **mbases**: sequenced bases, in millions
+11) **mbytes**: FastQ file's bytes, in millions
+
+# Alignment
+The FASTQ files for the selected samples were uploaded directly into the Galaxy instance from this mirror website:  http://www.ebi.ac.uk/ena/data/view/PRJNA245228. Find below the Galaxy instance related to this genomic data analysis, as well as the uploaded FastQ files (**table 2**), the parameters for the **Hisat alignment job**, output **BAM files** from the Hisat alignment job (**table 3**), alignment information for each BAM file (**table 4**), and well as the **R codes** to extract the corresponding information from the Galaxy instance. Columns 3 to 6 in **table 4** were collected manually from the Galaxy instance.
+
+```{r, cache=TRUE, message=FALSE, warning=FALSE, echo=FALSE}
+library(GalaxyConnector) # load GalaxyConnector package 
+# refer to https://github.com/scholtalbers/r-galaxy-connector for installation instructions
+
+gx_init('b3eb4f05f812dc80752b4ea797753860', GALAXY_URL='https://usegalaxy.org/')
+
+galaxy_hist <- gx_list_histories() # list all histories in the Galaxy instance
+galaxy_hist # print the history from the Galaxy instance
+```
+
+From the above table, the name (GDS_FetalAdultBrains) of the Galaxy instance history is listed. It also list that the history has not been deleted, purged or published. The url of the history, under the url column, is listed as well. 
+
+###*Table 2: FastQ files uploaded into the Galaxy instance*
+```{r, message=FALSE, warning=FALSE}
+# initiate download of the information in the Galaxy instance
+gx_init('b3eb4f05f812dc80752b4ea797753860', GALAXY_URL='https://usegalaxy.org/')
+
+fastq_files <- gx_list_history_datasets() #assign all datasets to fastq_files
+fastq_files_new <- fastq_files[c(2:17), c(1:3)] # extracts datasets 2 to 17, print only 6 columns
+pander(fastq_files_new) # print the FastQ files
+```
+
+### Alignment parameters
+1) **Tool**: Hisat2 (version 2.0.3)
+2) **paired-data**: yes
+3) **pair-end options**: defaults
+4) **Source for the reference genome to align against**: indexed
+5) **Select a reference genomes**: hg19
+5) **Primary Alignments**: 5
+6) **Alignment options**: defaults
+7) **Input options**: defaults
+8) **Scoring options**: defaults
+9) **Spliced alignment parameters**: defaults
+10) **Paired alignment parameters**: defaults
+
+###*Table 3: BAM files of the Hisat2 alignment job*
+```{r, message=FALSE, warning=FALSE}
+hisat2_job <- fastq_files[c(18:19, 26:31), 1:3] # extract metadata from BAM files
+pander(hisat2_job) # print list of BAM files
+```
+
+
+###*Table 4: Reduced metadata, input, and alignment information for each BAM file*
+```{r, message=FALSE, warning=FALSE}
+library(plyr); library(dplyr) # load plyr and dplyr package
+
+# create column of percent alignment
+sample_run_phenotypic <- mutate (sample_run_phenotypic, pcntalign = ((align1 + alignp1)/input)*100)
+
+# print table 4
+pander(select(sample_run_phenotypic, run, ageg, input, align0, align1, alignp1, pcntalign))
+```
+
+Variables' information (last 5 columns) from the **table 4**
+1) **input**: reads input
+2) **align0**: reads aligned 0 times
+3) **align1**: reads aligned 1 times
+4) **alignp1**: reads aligned > 1 times
+5) **pcntalign**: percentage of reads aligned
+
+As shown in **table 4 above**, fetal as well as adult FastQ files were higher than 98% aligned to the reference genome (**hg19**) used in this genomic data analysis report. 
+
+# Quality Control of the Alignment
+
+Find within this section **1)** the parameters for the FastQC job on the BAM files, **2)** the R code to extract the metainformation of the FastQC output datasets, **3)** and the metainformation of the FastQC output datasets (**table 5**). 
+
+###Parameters for the FastQC on accepted-hits BAM files in the Galaxy instances
+1) **Tool**: fastqc (version 0.65)
+2) **reference genome**: hg19
+3) **remaining parameters**: left as default
+
+###*Table 5: Output datasets of the FastQC job*
+```{r, message=FALSE, warning=FALSE}
+fastqc_job <- fastq_files[33:48, 1:3] # extract output files from FastQC job
+pander(fastqc_job) # print list of FastQC output files
+```
+
+To determine if per base quality scores differed between  age groups, the FastQC raw text files (see table 5 above) were downloaded directly into R. The R code below was implemented to compare per base sequence quality **1)** by sample and **2)** by age group. In addition, meean for each age group.
+
+```{r, message=FALSE, warning=FALSE, cache=TRUE}
+# download  raw FastQC text files for fetal sample run
+fastqc_538 <- gx_get(34, force = TRUE)
+fastqc_541 <-gx_get(36, force = TRUE)
+fastqc_566 <- gx_get(38, force = TRUE)
+fastqc_567 <- gx_get(40, force = TRUE)
+
+# read txt files for each fetal sample run
+fastqc538 <- read.delim(fastqc_538, skip=12, nrows=55)
+fastqc541 <- read.delim(fastqc_541, skip=12, nrows=55)
+fastqc566 <- read.delim(fastqc_566, skip=12, nrows=55)
+fastqc567 <- read.delim(fastqc_567, skip=12, nrows=55)
+
+# download  raw FastQC text files for adult sample run
+fastqc_534 <- gx_get(42, force = TRUE)
+fastqc_535 <-gx_get(44, force = TRUE)
+fastqc_536 <- gx_get(46, force = TRUE)
+fastqc_561 <- gx_get(48, force = TRUE)
+
+# read txt files for each adult sample run
+fastqc534 <- read.delim(fastqc_534, skip=12, nrows=55)
+fastqc535 <- read.delim(fastqc_535, skip=12, nrows=55)
+fastqc536 <- read.delim(fastqc_536, skip=12, nrows=55)
+fastqc561 <- read.delim(fastqc_561, skip=12, nrows=55)
+
+ageg <- factor(c(rep("fetus", 220), rep("adult", 220))) # create age variable
+ageg <- factor(ageg, order=TRUE, levels=c("fetus", "adult")) # order age variable
+
+# create data frame with per base sequence quality scores for each sample
+fastqc_all <- data.frame(fastqc538$Mean, fastqc541$Mean, fastqc566$Mean, 
+                         fastqc567$Mean, fastqc534$Mean, fastqc535$Mean,    
+                         fastqc536$Mean, fastqc561$Mean)
+# rename columns
+names(fastqc_all) <-c("fqc538", "fqc541", "fqc566", "fqc567", "fqc534", "fqc535", "fqc536", "fqc561")
+
+library(tidyr) # load tidyr package
+fastqc_all_tidy <- gather(fastqc_all, fastqc, pbsmeans, fqc538:fqc561) #tidy quality scores dataset
+fastqc_all_final <- data.frame(fastqc_all_tidy, ageg) #add the age group to the tidy dataset
+
+# re-order the levels to have fetal runs as first levels
+fastqc_all_final$fastqc <- factor(fastqc_all_final$fastqc, order=TRUE,
+                                  levels=c("fqc538", "fqc541", "fqc566", "fqc567", 
+                                           "fqc534", "fqc535", "fqc536", "fqc561"))
+# boxplot of FastQC job
+library(ggplot2) # load ggplot2 package
+fastqc_bxplot <- ggplot(fastqc_all_final, aes(x=fastqc, y=pbsmeans, fill=ageg)) 
+fastqc_bxplot <- fastqc_bxplot + geom_boxplot()
+fastqc_bxplot <- fastqc_bxplot + ggtitle("Fig 2: Per base sequence quality score by run and age groups") + 
+            ylab("Average Quality Scores") + xlab("Hisat Alignment Runs")
+
+fastqc_bxplot #print the boxplot
+```
+
+
+###*Table 6: Means of per based sequence quality scores by age group*
+```{r}
+# group by age, and calculate the mean after converting the output into a dataframe
+pander(as.data.frame(fastqc_all_final %>% group_by (ageg) %>% summarise (mean_pbsq = mean(pbsmeans))))
+```
+
+As seen in **figure 2** above, although there is some variability in the per base quality scores within the age groups, similar variability is shared between the age groups. This comparable variability by age group is further evidenced with similar per base sequence quality scores means (**table 6**). 
+
+
+# Features Counts from the Alignments
+To generate the abundance of transcripts summarized to gene-level, **htseq-counts** was implemented on the BAM files in the Galaxy instance. The raw counts for each BAM file were downloaded into R. Find below (**table 7**) the list of the htseq-count for each run.
+
+###*Table 7*: List of htseq-counts for each run
+```{r, message=FALSE, warning=FALSE}
+# download htseq-count ouput files
+htseq_counts <- fastq_files[c(49, 51, 53, 55, 57, 59, 61, 63), c(1:3)] # download htseq-count files
+pander(htseq_counts) #print list of htseq-count 
+```
+
+
+```{r, message=FALSE, warning=FALSE}
+# the following lines of code download into R the htseq-counts for each run
+htseq_538 <- read.delim(gx_get(49, force=TRUE))
+htseq_541 <- read.delim(gx_get(51, force=TRUE))
+htseq_566 <- read.delim(gx_get(53, force=TRUE))
+htseq_567 <- read.delim(gx_get(55, force=TRUE))
+htseq_534 <- read.delim(gx_get(57, force=TRUE))
+htseq_535 <- read.delim(gx_get(59, force=TRUE))
+htseq_536 <- read.delim(gx_get(61, force=TRUE))
+htseq_561 <- read.delim(gx_get(63, force=TRUE))
+
+# create dataframe from downloaded datasets
+gene_counts <- data.frame(htseq_538, htseq_541, htseq_566, htseq_567, htseq_534, 
+                          htseq_535, htseq_536, htseq_561)
+
+# extract columns with counts
+gene_counts_new <- gene_counts[,c(1:2,4,6,8,10,12, 14, 16)]
+
+# rename columns
+names(gene_counts_new) <- c("gene_id", "SRR1554538", "SRR1554541", "SRR1554566", 
+                            "SRR1554567", "SRR1554534", "SRR1554535", "SRR1554536", "SRR1554561")
+
+# re-order the columns to have one fetal followed by one adult column
+gene_counts_new1 <- select(gene_counts_new, gene_id, SRR1554538, SRR1554534, SRR1554541,
+                           SRR1554535, SRR1554566, SRR1554536, SRR1554567, SRR1554561)
+```
+
+###*Tablo 8: First 6 rows of the features counts for all runs*
+```{r}
+pander(head(gene_counts_new1))
+```
+
+
+###*Table 9: Last 6 rows of the features counts for all runs*
+```{r}
+pander(tail(gene_counts_new1))
+```
+
+# Exploratory Analysis
+In this step, the distance between the samples as wells the clustering (principal component analysis) by phenotypic variable (age group) was evaluated based on the features counts for each gene. The code for this exploratory analysis is found below.
+
+```{r, message=FALSE, warnings=FALSE}
+condition <- c("fetus", "adult", "fetus", "adult", "fetus", "adult", "fetus", "adult")
+run_last3 <- c("538", "534", "541", "535", "566", "536", "567", "561")
+col_data <- data.frame(condition, run_last3)
+row.names(col_data) <- c("SRR1554538", "SRR1554534", "SRR1554541", "SRR1554535",
+                         "SRR1554566", "SRR1554536", "SRR1554567", "SRR1554561")
+gene_counts_final <- gene_counts_new1[,2:9]
+row.names(gene_counts_final) <- gene_counts_new1[,1]
+
+library(DESeq2)
+gene_dds <- DESeqDataSetFromMatrix(countData = gene_counts_final, 
+            colData = col_data, design = ~ condition)
+
+gene_dds_rltransf <- rlog(gene_dds, blind=FALSE)
+
+dist_samples <- dist(t(assay(gene_dds_rltransf)))
+
+gene_fit <- hclust(dist_samples, method="ward.D")
+
+plot(gene_fit, hang=-1)
+
+plotPCA(gene_dds_rltransf, intgroup = c("condition"))
+```
+
+From both, the clustering and principal component analysis plots, respectively, the group together. This sets up the expectation that there will be differences in genes up-regulated and down-regulated between the fetal and adult samples. 
+
+# Statistical Analysis
+For the gene expression statistical analysis, adjusted p-value rather than p-value was used to subset up-regulated and down-regulated genes between fetal brain and adult brains samples. The reason for this is to adjust for multiple testing between the three fetal brain and three adult brains samples. **padj < 0.05 and fold change > 1 or < -1** were selected for **up-regulation and down-regulation**, respectively. 
+
+```{r, message==FALSE, warning=FALSE}
+gene_dd_dsq <- DESeq(gene_dds)
+
+gene_exp_results <- results(gene_dd_dsq) #retrieve gene exp results
+gene_exp_results_df <- as.data.frame(gene_exp_results) #results as data.frame
+
+# sum of genes up- and down-regulated at > 1 or < -1 fold change, and padj < 0.5
+sum(gene_exp_results_df$padj < 0.05 & gene_exp_results_df$log2FoldChange > 1, na.rm=TRUE)
+sum(gene_exp_results_df$padj < 0.05 & gene_exp_results_df$log2FoldChange < -1, na.rm=TRUE)
+
+## generate volcano plot
+with(gene_exp_results_df, plot(log2FoldChange, -log10(pvalue), pch=20, main="Volcano plot"))
+
+## add color to points 
+with(subset(gene_exp_results_df, padj<.05 ), 
+     points(log2FoldChange, -log10(pvalue), pch=20, col="red"))
+with(subset(gene_exp_results_df, abs(log2FoldChange)>1), 
+     points(log2FoldChange, -log10(pvalue), pch=20, col="orange"))
+with(subset(gene_exp_results_df, padj<.05 & abs(log2FoldChange)>1), 
+     points(log2FoldChange, -log10(pvalue), pch=20, col="green"))
+
+library (dplyr) # version 0.5.0
+gene_exp_results_df <- data.frame(gene_counts_new[,1], gene_exp_results_df)
+up18 <- gene_exp_results_df %>% filter (log2FoldChange > 1) %>% arrange(padj) %>% head # top up-reg genes
+down18 <- gene_exp_results_df %>% filter (log2FoldChange < -1) %>% arrange(padj) %>% head # top down-reg genes
+```
+
+# *Table 10: 18 of the Up-regulated genes*
+```{r}
+pander(up18)
+```
+**Table 10** above lists the 18 of the most statistically up-regulated genes, while **table 11** below lists the statistically down-regulated genes in the adult brains.
+
+# *Table 11: 18 of the Down-regulated genes*
+```{r}
+pander(down18)
+```
+
+Each student in the upper division course for which this RNA-seq data analysis workflow was demonstrated to was assigned a gene. For each gene, in the following class section each student was responsibe in searching the full name of the gene was well as the function. With this information, we opened an in-class discussion above the importance of each gene's function, up- or down-regulation in the fetal or adult brains. Text-mining will be performed to determine if there are relevant common words among the functions of up-regulated as well as down-regulated genes. 
+
